@@ -44,7 +44,7 @@ angular.module('starter.controllers', [])
   };
 })
 
-.controller('TopCtrl', function($scope, $http, $interval, $cordovaGeolocation, $cordovaSQLite, $cordovaDevice, $cordovaNetwork) {
+.controller('TopCtrl', function($scope, $http, $q, $interval, $cordovaGeolocation, $cordovaSQLite, $cordovaDevice, $cordovaNetwork) {
 
   var posOptions = {
     enableHighAccuracy: true,
@@ -98,6 +98,7 @@ angular.module('starter.controllers', [])
           $cordovaSQLite.execute($scope.db, "SELECT * FROM geo_locations ORDER BY rowid ASC")
           .then(function(result) {
             console.log('Success select geo locations');
+            $scope.number_of_rows = result.rows.length;
             var promises = [];
             angular.forEach(result, function(row) {
               row['sent_date_time'] = now;
