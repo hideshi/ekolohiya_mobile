@@ -1,6 +1,6 @@
 angular.module('starter.controllers', [])
 
-.controller('AppCtrl', function($scope, $ionicModal, $timeout) {
+.controller('AppCtrl', function($scope, $ionicModal, $timeout, $cordovaSQLite) {
 
   // With the new view caching in Ionic, Controllers are only called
   // when they are recreated or on app start, instead of every page change.
@@ -8,6 +8,9 @@ angular.module('starter.controllers', [])
   // listen for the $ionicView.enter event:
   //$scope.$on('$ionicView.enter', function(e) {
   //});
+
+  $scope.db = window.openDatabase("ekolohiya", "1.0", "First database", 2 * 1024 * 1024);
+  $cordovaSQLite.execute($scope.db, 'CREATE TABLE IF NOT EXISTS geo_locations (device_id, fuel_type, type_of_vehicle, latitude, longitude, accuracy, measured_date_time)');
 
   // Form data for the login modal
   $scope.loginData = {};
@@ -41,7 +44,7 @@ angular.module('starter.controllers', [])
   };
 })
 
-.controller('TopCtrl', function($scope, $interval, $cordovaGeolocation) {
+.controller('TopCtrl', function($scope, $interval, $cordovaGeolocation, $cordovaSQLite, $cordovaDevice) {
 
   var stop;
 
@@ -55,12 +58,27 @@ angular.module('starter.controllers', [])
   repeat = function() {
     console.log("Repeating");
     $cordovaGeolocation.getCurrentPosition(posOptions).then(function(position) {
-      console.log('Success');
-      console.log(position);
+      console.log('Success get location');
+      //console.log(position);
       $scope.latitude = position.coords.latitude;
       $scope.longitude = position.coords.longitude;
+      $scope.accuracy = position.coords.accuracy;
+      //console.log($cordovaDevice);
+      try {
+        $scope.device_id = $cordovaDevice.getUUID();
+      } catch(e) {
+        $scope.device_id = '20013fea6bcc820c';
+      }
+      $cordovaSQLite.execute($scope.db, "INSERT INTO geo_locations (device_id, fuel_type, type_of_vehicle, latitude, longitude, accuracy, measured_date_time) VALUES ('" + $scope.device_id + "', 1, 3, " + $scope.latitude + ", " + $scope.longitude + ", " + $scope.accuracy + ", " + new Date().getTime() + ")")
+      .then(function(result) {
+        console.log('Success insert geo location');
+        console.log(result);
+      }, function(error) {
+        console.log('Error insert geo location');
+        console.log(error);
+      })
     }, function(error) {
-      console.log('Error');
+      console.log('Error geo location');
       console.log(error);
     });
   };
@@ -68,7 +86,7 @@ angular.module('starter.controllers', [])
   // Press start button
   $scope.start = function() {
     console.log('Press start');
-    stop = $interval(repeat, 1000);
+    stop = $interval(repeat, 3000);
   };
 
   // Press stop button
@@ -76,4 +94,5 @@ angular.module('starter.controllers', [])
     console.log('Press stop');
     $interval.cancel(stop);
   };
+
 });
