@@ -44,9 +44,7 @@ angular.module('starter.controllers', [])
   };
 })
 
-.controller('TopCtrl', function($scope, $interval, $cordovaGeolocation, $cordovaSQLite, $cordovaDevice) {
-
-  var stop;
+.controller('TopCtrl', function($scope, $http, $interval, $cordovaGeolocation, $cordovaSQLite, $cordovaDevice, $cordovaNetwork) {
 
   var posOptions = {
     enableHighAccuracy: true,
@@ -54,34 +52,71 @@ angular.module('starter.controllers', [])
     maximumAge: 0
   };
 
-  // Repeat something
+  // Insert get location
+  var save_geo_location = function(param) {
+    $cordovaSQLite.execute($scope.db, "INSERT INTO geo_locations (device_id, fuel_type, type_of_vehicle, latitude, longitude, accuracy, measured_date_time) VALUES (?, ?, ?, ?, ?, ?, ?)", param)
+    .then(function(result) {
+      console.log('Success insert geo location');
+      console.log(result);
+    }, function(error) {
+      console.log('Error insert geo location');
+      console.log(error);
+    });
+  };
+
+  // Repeat
   repeat = function() {
     console.log("Repeating");
     $cordovaGeolocation.getCurrentPosition(posOptions).then(function(position) {
       console.log('Success get location');
-      //console.log(position);
       $scope.latitude = position.coords.latitude;
       $scope.longitude = position.coords.longitude;
       $scope.accuracy = position.coords.accuracy;
-      //console.log($cordovaDevice);
       try {
         $scope.device_id = $cordovaDevice.getUUID();
       } catch(e) {
         $scope.device_id = '20013fea6bcc820c';
       }
-      $cordovaSQLite.execute($scope.db, "INSERT INTO geo_locations (device_id, fuel_type, type_of_vehicle, latitude, longitude, accuracy, measured_date_time) VALUES ('" + $scope.device_id + "', 1, 3, " + $scope.latitude + ", " + $scope.longitude + ", " + $scope.accuracy + ", " + new Date().getTime() + ")")
-      .then(function(result) {
-        console.log('Success insert geo location');
-        console.log(result);
+      var param = [$scope.device_id, 1, 3, $scope.latitude, $scope.longitude, $scope.accuracy, new Date().getTime()];
+      var data = {
+        "device_id" : $scope.device_id,
+        "fuel_type" : 1,
+        "type_of_vehicle" : 3,
+        "latitude" : $scope.latitude,
+        "longitude" : $scope.longitude,
+        "accuracy" : $scope.accuracy,
+        "measured_date_time" : new Date().getTime()
+      };
+      try {
+        if($cordovaNetwork.getNetwork() === Connection.NONE) {
+          console.log('No network');
+          save_geo_location(param);
+        } else {
+          console.log('Network is available');
+          $http({
+            method: 'POST',
+            url: '/geo_locations',
+            data: JSON.stringify(data)
+          }).then(function(result) {
+            console.log('Success ajax request');
+            console.log(result);
+          }, function(error) {
+            console.log('Error ajax request');
+            console.log(error);
+            save_geo_location(param);
+          }); 
+        }
+      } catch(e) {
+        console.log('Error network check');
+        save_geo_location(param);
+      }
       }, function(error) {
-        console.log('Error insert geo location');
-        console.log(error);
-      })
-    }, function(error) {
       console.log('Error geo location');
       console.log(error);
     });
   };
+
+  var stop;
 
   // Press start button
   $scope.start = function() {
