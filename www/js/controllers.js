@@ -77,7 +77,8 @@ angular.module('starter.controllers', [])
       } catch(e) {
         $scope.device_id = '20013fea6bcc820c';
       }
-      var param = [$scope.device_id, 1, 3, $scope.latitude, $scope.longitude, $scope.accuracy, new Date().getTime()];
+      var now = new Date().getTime();
+      var param = [$scope.device_id, 1, 3, $scope.latitude, $scope.longitude, $scope.accuracy, now];
       var data = {
         "device_id" : $scope.device_id,
         "fuel_type" : 1,
@@ -85,7 +86,7 @@ angular.module('starter.controllers', [])
         "latitude" : $scope.latitude,
         "longitude" : $scope.longitude,
         "accuracy" : $scope.accuracy,
-        "measured_date_time" : new Date().getTime()
+        "measured_date_time" : now
       };
       try {
         if($cordovaNetwork.getNetwork() === Connection.NONE) {
@@ -93,18 +94,43 @@ angular.module('starter.controllers', [])
           save_geo_location(param);
         } else {
           console.log('Network is available');
-          $http({
-            method: 'POST',
-            url: '/geo_locations',
-            data: JSON.stringify(data)
-          }).then(function(result) {
-            console.log('Success ajax request');
-            console.log(result);
+          $scope.network = $cordovaNetwork.getNetwork();
+          $cordovaSQLite.execute($scope.db, "SELECT * FROM geo_locations ORDER BY rowid ASC")
+          .then(function(result) {
+            console.log('Success select geo locations');
+            var promises = [];
+            angular.forEach(result, function(row) {
+              row['sent_date_time'] = now;
+              var promise = $http({
+                method: 'POST',
+                url: '/geo_locations',
+                data: JSON.stringify(row)
+              }); 
+              promises.push(promise);
+            })
+            data["sent_date_time"] = now;
+            promises.push(data);
+            $q.all(promises)
+            .then(function(result) {
+              console.log('Success ajax request');
+              console.log(result);
+              $cordovaSQLite.execute($scope.db, "DELETE FROM geo_locations")
+              .then(function(result) {
+                console.log('Success delete geo locations');
+                console.log(result);
+              }, function(error) {
+                console.log('Error delete geo locations');
+                console.log(error);
+              });
+            }, function(error) {
+              console.log('Error ajax request');
+              console.log(error);
+              save_geo_location(param);
+            }); 
           }, function(error) {
-            console.log('Error ajax request');
+            console.log('Error select geo locations');
             console.log(error);
-            save_geo_location(param);
-          }); 
+          });
         }
       } catch(e) {
         console.log('Error network check');
