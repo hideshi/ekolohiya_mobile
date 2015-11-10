@@ -46,13 +46,7 @@ angular.module('starter.controllers', [])
 
 .controller('TopCtrl', function($scope, $http, $q, $interval, $cordovaGeolocation, $cordovaSQLite, $cordovaDevice, $cordovaNetwork) {
 
-  var posOptions = {
-    enableHighAccuracy: true,
-    timeout: 20000,
-    maximumAge: 0
-  };
-
-  // Insert get location
+  // Insert geo location
   var save_geo_location = function(param) {
     $cordovaSQLite.execute($scope.db, "INSERT INTO geo_locations (device_id, fuel_type, type_of_vehicle, latitude, longitude, accuracy, measured_date_time) VALUES (?, ?, ?, ?, ?, ?, ?)", param)
     .then(function(result) {
@@ -62,6 +56,24 @@ angular.module('starter.controllers', [])
       console.log('Error insert geo location');
       console.log(error);
     });
+  };
+
+  //Delete geo location
+  var delete_geo_location = function(param) {
+    $cordovaSQLite.execute($scope.db, "DELETE FROM geo_locations")
+    .then(function(result) {
+      console.log('Success delete geo locations');
+      console.log(result);
+    }, function(error) {
+      console.log('Error delete geo locations');
+      console.log(error);
+    });
+  };
+
+  var posOptions = {
+    enableHighAccuracy: true,
+    timeout: 20000,
+    maximumAge: 0
   };
 
   // Repeat
@@ -75,6 +87,7 @@ angular.module('starter.controllers', [])
       try {
         $scope.device_id = $cordovaDevice.getUUID();
       } catch(e) {
+        //For the web browser 
         $scope.device_id = '20013fea6bcc820c';
       }
       var now = new Date().getTime();
@@ -89,40 +102,23 @@ angular.module('starter.controllers', [])
         "measured_date_time" : now
       };
       try {
+        $scope.network = $cordovaNetwork.getNetwork();
         if($cordovaNetwork.getNetwork() === Connection.NONE) {
           console.log('No network');
           save_geo_location(param);
         } else {
           console.log('Network is available');
-          $scope.network = $cordovaNetwork.getNetwork();
           $cordovaSQLite.execute($scope.db, "SELECT * FROM geo_locations ORDER BY rowid ASC")
           .then(function(result) {
             console.log('Success select geo locations');
-            $scope.number_of_rows = result.rows.length;
-            var promises = [];
-            angular.forEach(result, function(row) {
-              row['sent_date_time'] = now;
-              var promise = $http({
-                method: 'POST',
-                url: '/geo_locations',
-                data: JSON.stringify(row)
-              }); 
-              promises.push(promise);
-            })
             data["sent_date_time"] = now;
-            promises.push(data);
-            $q.all(promises)
-            .then(function(result) {
+            $http({
+              method: 'POST',
+              url: '/geo_locations',
+              data: JSON.stringify(data)
+            }).then(function(result) {
               console.log('Success ajax request');
               console.log(result);
-              $cordovaSQLite.execute($scope.db, "DELETE FROM geo_locations")
-              .then(function(result) {
-                console.log('Success delete geo locations');
-                console.log(result);
-              }, function(error) {
-                console.log('Error delete geo locations');
-                console.log(error);
-              });
             }, function(error) {
               console.log('Error ajax request');
               console.log(error);
@@ -133,6 +129,31 @@ angular.module('starter.controllers', [])
             console.log(error);
           });
         }
+/*
+            var promises = [];
+            angular.forEach(result, function(row) {
+              row['sent_date_time'] = now;
+              var promise = $http({
+                method: 'POST',
+                url: '/geo_locations',
+                data: JSON.stringify(row)
+              }); 
+              promises.push(promise);
+            })
+            //data["sent_date_time"] = now;
+            //promises.push(data);
+            $scope.number_of_rows = promises.length;
+            $q.all(promises)
+            .then(function(result) {
+              console.log('Success ajax request');
+              console.log(result);
+              delete_geo_location();
+            }, function(error) {
+              console.log('Error ajax request');
+              console.log(error);
+              save_geo_location(param);
+            }); 
+*/
       } catch(e) {
         console.log('Error network check');
         save_geo_location(param);
