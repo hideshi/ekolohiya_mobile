@@ -41,24 +41,39 @@ angular.module('starter.controllers', [])
   };
 })
 
-.controller('TopCtrl', function($scope, $interval) {
+.controller('TopCtrl', function($scope, $interval, $cordovaGeolocation) {
 
   var stop;
+
+  var posOptions = {
+    enableHighAccuracy: true,
+    timeout: 20000,
+    maximumAge: 0
+  };
 
   // Repeat something
   repeat = function() {
     console.log("Repeating");
+    $cordovaGeolocation.getCurrentPosition(posOptions).then(function(position) {
+      console.log('Success');
+      console.log(position);
+      $scope.latitude = position.coords.latitude;
+      $scope.longitude = position.coords.longitude;
+    }, function(error) {
+      console.log('Error');
+      console.log(error);
+    });
   };
 
   // Press start button
   $scope.start = function() {
-    console.log("Press start");
+    console.log('Press start');
     stop = $interval(repeat, 1000);
   };
 
   // Press stop button
   $scope.stop = function() {
-    console.log("Press stop");
+    console.log('Press stop');
     $interval.cancel(stop);
   };
 });
